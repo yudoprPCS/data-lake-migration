@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Lake Migration — FMS + POSe + TAP</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3347;
+    --text: #e4e6f0;
+    --text-dim: #8b8fa7;
+    --accent: #6c7ee1;
+    --accent-light: #8b9bf0;
+    --lead: #ec4899;
+    --fms: #f59e0b;
+    --pose: #10b981;
+    --tap: #6366f1;
+    --infra: #64748b;
+    --gold-fms: #fbbf24;
+    --gold-pose: #34d399;
+    --gold-tap: #818cf8;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,.35);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ─── Header ─── */
+  header {
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 32px 20px;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+  header h1 span { color: var(--accent); }
+  .subtitle { color: var(--text-dim); font-size: .88rem; margin-top: 4px; }
+
+  /* ─── Stats Bar ─── */
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    padding: 16px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    font-size: .85rem;
+    min-width: 140px;
+  }
+  .stat .num { font-size: 1.35rem; font-weight: 700; }
+  .stat.fms .num { color: var(--fms); }
+  .stat.pose .num { color: var(--pose); }
+  .stat.tap .num { color: var(--tap); }
+  .stat.total .num { color: var(--accent); }
+
+  /* ─── Progress ─── */
+  .progress-section {
+    padding: 16px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .progress-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    border-radius: 99px;
+    transition: width .4s ease;
+  }
+  .progress-label { font-size: .85rem; color: var(--text-dim); white-space: nowrap; }
+  .progress-pct { font-weight: 700; color: var(--accent); font-size: .95rem; }
+
+  /* ─── Controls ─── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    padding: 16px 32px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls button {
+    padding: 7px 16px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .controls .spacer { flex: 1; }
+  .controls input[type="text"] {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: .82rem;
+    width: 220px;
+    outline: none;
+  }
+  .controls input:focus { border-color: var(--accent); }
+
+  /* ─── Main Grid ─── */
+  .main { padding: 0 32px 40px; }
+
+  /* ─── Week Card ─── */
+  .week-card {
+    margin-top: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .week-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
+  }
+  .week-header:hover { background: var(--surface2); }
+  .week-badge {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .week-badge.w1 { background: #334155; color: #94a3b8; }
+  .week-badge.w2 { background: #78350f; color: #fbbf24; }
+  .week-badge.w3 { background: #78350f; color: #fbbf24; }
+  .week-badge.w4 { background: #064e3b; color: #6ee7b7; }
+  .week-badge.w5 { background: #064e3b; color: #6ee7b7; }
+  .week-badge.w6 { background: #064e3b; color: #6ee7b7; }
+  .week-badge.w7 { background: #1e1b4b; color: #a5b4fc; }
+  .week-badge.w8 { background: #4c1d95; color: #c4b5fd; }
+  .week-badge.w9 { background: #7f1d1d; color: #fca5a5; }
+  .week-title { font-weight: 600; font-size: .95rem; flex: 1; }
+  .week-meta { font-size: .78rem; color: var(--text-dim); }
+  .week-toggle {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    transition: transform .2s;
+  }
+  .week-card.open .week-toggle { transform: rotate(90deg); }
+  .week-body { display: none; border-top: 1px solid var(--border); }
+  .week-card.open .week-body { display: block; }
+
+  /* ─── Day Table ─── */
+  .day-section { padding: 0 20px 12px; }
+  .day-section + .day-section { border-top: 1px solid var(--border); padding-top: 12px; }
+  .day-label {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--accent);
+    margin: 12px 0 6px;
+  }
+  .task-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  .task-table th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .task-table tr:last-child td { border-bottom: none; }
+  .task-table tr:hover { background: rgba(108,126,225,.04); }
+
+  /* ─── Tags ─── */
+  .tag {
+    display: inline-block;
+    font-size: .68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .tag.fms { background: rgba(245,158,11,.15); color: var(--fms); }
+  .tag.pose { background: rgba(16,185,129,.15); color: var(--pose); }
+  .tag.tap { background: rgba(99,102,241,.15); color: var(--tap); }
+  .tag.lead { background: rgba(236,72,153,.15); color: var(--lead); }
+  .tag.infra { background: rgba(100,116,139,.15); color: var(--infra); }
+
+  /* ─── Checkbox ─── */
+  .task-cb { cursor: pointer; accent-color: var(--accent); width: 16px; height: 16px; }
+  .task-cb:checked + .task-text { text-decoration: line-through; color: var(--text-dim); }
+
+  /* ─── Exit Criteria ─── */
+  .exit-criteria {
+    margin: 10px 20px 16px;
+    padding: 10px 14px;
+    background: rgba(108,126,225,.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: .82rem;
+    color: var(--text-dim);
+  }
+  .exit-criteria strong { color: var(--text); }
+
+  /* ─── Deliverables Section ─── */
+  .deliverables {
+    margin-top: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .deliverables-header {
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: .92rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .deliverables-header:hover { background: var(--surface2); }
+  .deliverables-body { display: none; padding: 0 20px 16px; }
+  .deliverables.open .deliverables-body { display: block; }
+  .deliverables.open .deliverables-header .week-toggle { transform: rotate(90deg); }
+  .deliverable-group { margin-bottom: 14px; }
+  .deliverable-group h4 {
+    font-size: .82rem;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .deliverable-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: .82rem;
+  }
+  .deliverable-item input { margin-top: 3px; accent-color: var(--accent); }
+
+  /* ─── Gantt ─── */
+  .gantt-section {
+    margin-top: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .gantt-header {
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: .92rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .gantt-header:hover { background: var(--surface2); }
+  .gantt-body { display: none; padding: 16px 20px; overflow-x: auto; }
+  .gantt-section.open .gantt-body { display: block; }
+  .gantt-section.open .gantt-header .week-toggle { transform: rotate(90deg); }
+  .gantt-chart { width: 100%; min-width: 900px; }
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    height: 30px;
+  }
+  .gantt-label {
+    width: 180px;
+    min-width: 180px;
+    font-size: .78rem;
+    font-weight: 600;
+    padding-right: 12px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gantt-track {
+    flex: 1;
+    position: relative;
+    height: 22px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .gantt-bar {
+    position: absolute;
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: .68rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: .85;
+    transition: opacity .15s;
+  }
+  .gantt-bar:hover { opacity: 1; }
+  .gantt-bar.lead { background: var(--lead); }
+  .gantt-bar.fms { background: var(--fms); }
+  .gantt-bar.pose { background: var(--pose); }
+  .gantt-bar.tap { background: var(--tap); }
+  .gantt-bar.infra { background: var(--infra); }
+  .gantt-bar.gold { background: var(--accent); }
+  .gantt-bar.dash { background: #a855f7; }
+  .gantt-bar.valid { background: var(--danger); }
+
+  /* ─── Today Marker ─── */
+  .gantt-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--danger);
+    z-index: 5;
+  }
+  .gantt-today::after {
+    content: 'TODAY';
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: .6rem;
+    font-weight: 700;
+    color: var(--danger);
+    white-space: nowrap;
+  }
+
+  /* ─── Footer ─── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: .75rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    header, .stats-bar, .controls, .main, .progress-section { padding-left: 16px; padding-right: 16px; }
+    .stats-bar { gap: 8px; }
+    .stat { min-width: 110px; padding: 8px 12px; }
+    .controls input[type="text"] { width: 160px; }
+    .gantt-label { width: 120px; min-width: 120px; font-size: .7rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Data Lake Migration <span>FMS + POSe + TAP</span></h1>
+  <p class="subtitle">ELK &amp; PostgreSQL → Apache Iceberg · Polaris · StarRocks · Superset &mdash; 2 months, 44 working days, 3 engineers (1 Lead + 2 Engineers)</p>
+</header>
+
+<div class="stats-bar">
+  <div class="stat total"><div><div class="num">186</div><div>Nodes</div></div></div>
+  <div class="stat total"><div><div class="num">254</div><div>Edges</div></div></div>
+  <div class="stat total"><div><div class="num">63</div><div>Dashboards</div></div></div>
+  <div class="stat fms"><div><div class="num">61</div><div>FMS nodes</div></div></div>
+  <div class="stat pose"><div><div class="num">79</div><div>POSe nodes</div></div></div>
+  <div class="stat tap"><div><div class="num">46</div><div>TAP nodes</div></div></div>
+</div>
+
+<div class="progress-section">
+  <span class="progress-label">Overall Progress</span>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <span class="progress-pct" id="progressPct">0%</span>
+</div>
+
+<div class="controls">
+  <button class="active" data-filter="all">All</button>
+  <button data-filter="lead">Lead</button>
+  <button data-filter="fms">FMS</button>
+  <button data-filter="pose">POSe</button>
+  <button data-filter="tap">TAP</button>
+  <button data-filter="infra">Infra</button>
+  <span class="spacer"></span>
+  <button id="expandAll">Expand All</button>
+  <button id="collapseAll">Collapse All</button>
+  <input type="text" id="searchBox" placeholder="Search tasks…">
+</div>
+
+<div class="main" id="mainContent"></div>
+
+<footer>Data Lake Migration Dashboard &middot; Auto-generated from COMPREHENSIVE-MIGRATION-PLAN.md</footer>
+
+<script>
+// ── Data Model (Lead + E1 + E2) ──
+const weeks = [
+  {
+    id: 1, label: 'Week 1', days: 'D1–D5', title: 'Infrastructure Setup',
+    exit: 'Polaris running, StarRocks connected, 1 table ingested per pipeline',
+    tasks: [
+      { day: 'D1', lead: 'Polaris catalog installation + config\nStarRocks cluster topology design + deployment', e1: 'StarRocks FE/BE node setup + Polaris connector config', e2: 'StarRocks resource group + storage volume config', tag: 'infra', deliverable: 'Catalog + engine ready' },
+      { day: 'D2', lead: 'Create all Bronze namespaces + schema mapping doc\nConfigure Airbyte source connectors (PostgreSQL, MySQL, MongoDB)', e1: 'Create FMS Bronze namespaces: fms_mongodb, fms_mysql, fms_manual, fms_derived', e2: 'Create POSe+TAP Bronze namespaces: pose_postgres, subscription_postgres, pose_mongodb, pose_staging, pose_views, tap_postgres, cl_postgres, cl_mongodb, tap_staging, tap_views, picas_mysql, mavis_mysql', tag: 'infra', deliverable: 'Namespaces created' },
+      { day: 'D3', lead: 'Define RBAC policies + access matrix\nCreate Silver/Gold namespaces: silver.*, gold.* for all systems', e1: 'Silver/Gold namespace RBAC: silver.fms, gold.fms', e2: 'Silver/Gold namespace RBAC: silver.pose, gold.pose, silver.tap, gold.tap', tag: 'infra', deliverable: 'All namespaces + RBAC' },
+      { day: 'D4', lead: 'StarRocks external catalog registration (unified_catalog)\nPolaris ↔ StarRocks connectivity testing', e1: 'StarRocks external catalog registration (fms_catalog)', e2: 'StarRocks external catalog registration (pose_catalog, tap_catalog)', tag: 'infra', deliverable: 'Catalogs registered' },
+      { day: 'D5', lead: 'Airbyte POC: PostgreSQL → bronze.pose_postgres.transactions\nAirbyte connector config tuning (batch size, CDC mode)', e1: 'Airbyte POC: MongoDB → bronze.fms_mongodb.logstash_transaction', e2: 'Airbyte POC: MySQL → bronze.fms_mysql.logstash_ticket_maintenance', tag: 'infra', deliverable: 'Airbyte pipeline validated' },
+    ]
+  },
+  {
+    id: 2, label: 'Week 2', days: 'D6–D10', title: 'Bronze Phase 1 — FMS MongoDB/MySQL + POSe CDC',
+    exit: 'FMS: 12 Bronze tables. POSe: 37 Bronze tables. All row counts validated.',
+    tasks: [
+      { day: 'D6', lead: 's_cdc_pose.transactions → bronze.pose_postgres.transactions\nAirbyte sync monitoring + row count validation script', e1: 'logstash-transaction → bronze.fms_mongodb.logstash_transaction (MongoDB CDC)', e2: 's_cdc_pose.orders → bronze.pose_postgres.orders\ns_cdc_pose.order_details → bronze.pose_postgres.order_details\ns_cdc_pose.order_methods → bronze.pose_postgres.order_methods', tag: 'fms', secondary: 'pose' },
+      { day: 'D7', lead: 's_cdc_pose.stores → bronze.pose_postgres.stores\ns_cdc_pose.merchants → bronze.pose_postgres.merchants\nPopulation table schema validation', e1: 'logstash-population_with_hb_trx_logon_ticket → bronze.fms_derived.logstash_population (derived)', e2: 's_cdc_pose.terminals → bronze.pose_postgres.terminals\ns_cdc_pose.terminal_types → bronze.pose_postgres.terminal_types\ns_cdc_pose.clients → bronze.pose_postgres.clients', tag: 'fms', secondary: 'pose' },
+      { day: 'D8', lead: 's_cdc_pose.users → bronze.pose_postgres.users\ns_cdc_pose.roles → bronze.pose_postgres.roles\nMySQL CDC field mapping review', e1: 'logstash-ticket_maintenance → bronze.fms_mysql.logstash_ticket_maintenance (MySQL)\nlogstash-logon → bronze.fms_mongodb.logstash_logon (MongoDB)\nlogstash-ticket_implementation → bronze.fms_mysql.logstash_ticket_implementation (MySQL)', e2: 's_cdc_pose.companies → bronze.pose_postgres.companies\ns_cdc_pose.region_offices → bronze.pose_postgres.region_offices\ns_cdc_pose.store_payment_methods → bronze.pose_postgres.store_payment_methods', tag: 'fms', secondary: 'pose' },
+      { day: 'D9', lead: 's_cdc_pose.items → bronze.pose_postgres.items\ns_cdc_pose.categories → bronze.pose_postgres.categories\nHeartbeat data null rate validation', e1: 'logstash-hb_primary → bronze.fms_mongodb.logstash_hb_primary (MongoDB)\nlogstash-hb_secondary → bronze.fms_mongodb.logstash_hb_secondary (MongoDB)\nlogstash-pisa → bronze.fms_mysql.logstash_pisa (MySQL)', e2: 's_cdc_pose.payment_methods → bronze.pose_postgres.payment_methods\ns_cdc_pose.qr_statics → bronze.pose_postgres.qr_statics\ns_cdc_pose.transaction_details → bronze.pose_postgres.transaction_details', tag: 'fms', secondary: 'pose' },
+      { day: 'D10', lead: 's_cdc_subscription.users → bronze.subscription_postgres.users\ns_cdc_subscription.package_subs → bronze.subscription_postgres.package_subs\nW2 status report + row count spot-check', e1: 'logstash-ecrlink → bronze.fms_mysql.logstash_ecrlink (MySQL)\nlogstash-paid_void → bronze.fms_mysql.logstash_paid_void (MySQL)\nlogstash-stock → bronze.fms_mysql.logstash_stock (MySQL)\nlogstash-jpos → bronze.fms_mongodb.logstash_jpos (MongoDB)', e2: 'thermal_activities → bronze.pose_mongodb.thermal_activities\n5 staging tables → bronze.pose_staging.*\n2 view tables → bronze.pose_views.*', tag: 'fms', secondary: 'pose' },
+    ]
+  },
+  {
+    id: 3, label: 'Week 3', days: 'D11–D15', title: 'Bronze Phase 2 — FMS remaining + TAP CDC',
+    exit: 'FMS: 15 Bronze tables validated. POSe: 37 Bronze tables validated. TAP: 32 Bronze tables validated.',
+    tasks: [
+      { day: 'D11', lead: 's_cdc_tap.users → bronze.tap_postgres.users\ns_cdc_tap.submission_poses → bronze.tap_postgres.submission_poses\nTAP CDC schema review', e1: 'target_edc → bronze.fms_manual.target_edc (manual)\npopulation_historical → bronze.fms_derived.population_historical (derived)', e2: 's_cdc_tap.merchants → bronze.tap_postgres.merchants\ns_cdc_tap.ro_mavis → bronze.tap_postgres.ro_mavis', tag: 'fms', secondary: 'tap' },
+      { day: 'D12', lead: 's_cdc_tap.districts → bronze.tap_postgres.districts\ns_cdc_tap.regencies → bronze.tap_postgres.regencies\ns_cdc_tap.provinces → bronze.tap_postgres.provinces\nFMS row count cross-validation', e1: 'logstash-ticket_hb → bronze.fms_derived.logstash_ticket_hb (derived)\nValidate all 15 FMS Bronze tables: row counts vs ES', e2: 's_cdc_tap.companies → bronze.tap_postgres.companies\ns_cdc_tap.roles → bronze.tap_postgres.roles', tag: 'fms', secondary: 'tap' },
+      { day: 'D13', lead: 's_cdc_tap.pose_subscriptions → bronze.tap_postgres.pose_subscriptions\ns_cdc_tap.pose_subscription_histories → bronze.tap_postgres.pose_subscription_histories\nSCD2 template design doc', e1: 'FMS Bronze: field completeness check (null % per field)\nFMS Bronze: partition alignment verification', e2: 's_cdc_tap.model_has_roles → bronze.tap_postgres.model_has_roles', tag: 'fms', secondary: 'tap' },
+      { day: 'D14', lead: 's_cdc_cl.users → bronze.cl_postgres.users\ns_cdc_cl.roles → bronze.cl_postgres.roles\ns_cdc_cl.mid_employees → bronze.cl_postgres.mid_employees\nFMS Bronze sign-off', e1: 'FMS Bronze sign-off document', e2: 's_cdc_cl.attendances → bronze.cl_postgres.attendances\ns_cdc_mongocl.user_points → bronze.cl_mongodb.user_points\n5 subscription tables → bronze.subscription_postgres.*\ns_cdc_pose.users → bronze.pose_postgres.users', tag: 'fms', secondary: 'tap' },
+      { day: 'D15', lead: 'stg_pengajuan_pose_qrset → bronze.tap_staging.*\n4 view tables → bronze.tap_views.*\nW3 status report + Bronze completion summary', e1: 'Buffer / fix any FMS Bronze issues', e2: 'mavis.* 4 tables → bronze.mavis_mysql.* (MySQL)\npicas.* 15 tables → bronze.picas_mysql.* (MySQL)\nTAP Bronze validation: all 48 tables', tag: 'fms', secondary: 'tap' },
+    ]
+  },
+  {
+    id: 4, label: 'Week 4', days: 'D16–D20', title: 'Silver Phase 1 — FMS core transforms + POSe SCD2 master data',
+    exit: 'FMS: 3 Silver objects. POSe: 14 SCD2 tables + 14 current views.',
+    tasks: [
+      { day: 'D16', lead: 'silver.scd_merchants (SCD2) + current view\nsilver.scd_stores (SCD2) + current view\nSCD2 merge logic implementation + testing', e1: 'silver.scd_transaction (SCD2, dedup by transaction_id, RC=00/approved/paid/void)', e2: 'silver.scd_terminals (SCD2) + current view', tag: 'fms', secondary: 'pose' },
+      { day: 'D17', lead: 'silver.scd_users (SCD2) + current view\nsilver.scd_clients (SCD2) + current view\nMV UNIQUE key design validation', e1: 'silver.transaction_approved_paid_void (StarRocks MV, UNIQUE key on transaction_id)', e2: 'silver.scd_companies (SCD2) + current view\nsilver.scd_roles (SCD2) + current view', tag: 'fms', secondary: 'pose' },
+      { day: 'D18', lead: 'silver.scd_terminal_types (SCD2) + current view\nsilver.scd_region_offices (SCD2) + current view\nROW_NUMBER partition correctness validation', e1: 'silver.first_trx_manual_key_in (view: ROW_NUMBER partition by terminal)', e2: 'silver.scd_store_payment_methods (SCD2) + current view', tag: 'fms', secondary: 'pose' },
+      { day: 'D19', lead: 'silver.scd_subscription_users (SCD2) + current view\nsilver.scd_absence_logs (SCD2) + current view\n25 runtime fields → CASE WHEN mapping doc', e1: 'silver.transaction_summary_by_tid (view: ~25 runtime fields → CASE WHEN)', e2: 'Validate all 14 SCD2 tables: row counts, effective_from/effective_to correctness', tag: 'fms', secondary: 'pose' },
+      { day: 'D20', lead: 'Validate all 14 current views: is_current=TRUE filter\nSilver Phase 1 validation review + W4 status report', e1: 'Validate silver.transaction_approved_paid_void vs ES (1000-row sample)\nValidate silver.first_trx_manual_key_in vs ES\nValidate silver.transaction_summary_by_tid vs ES', e2: 'Validate POSe Silver: compare SCD2 output with PostgreSQL source', tag: 'fms', secondary: 'pose' },
+    ]
+  },
+  {
+    id: 5, label: 'Week 5', days: 'D21–D25', title: 'Silver Phase 2 — FMS enrichment chain + POSe heavy JOIN MVs',
+    exit: 'FMS: 7 Silver objects validated. POSe: 7 Silver objects validated.',
+    tasks: [
+      { day: 'D21', lead: 'silver.transaction (MV: 22-table JOIN across transactions, orders, order_details, terminals, stores, merchants, etc.)\nEXPLAIN plan analysis + MV partitioning strategy', e1: 'silver.ticket_with_hb_trx_logon (MV: JOIN logon + hb_primary + hb_secondary, UNIQUE on terminal_id+date)', e2: 'silver.transaction_summary (view: GROUP BY DATE(trx_date), terminal_id, store_id with SUM/COUNT)', tag: 'fms', secondary: 'pose' },
+      { day: 'D22', lead: 'silver.transaction_access_point_feature (MV: flatten nested filter aggs → GROUP BY poi, date, payment_category)\nNested agg flattening logic validation', e1: 'silver.population_enrichment_monthly (MV: collapsed 6-transform chain. CTEs: trx_summary, logon_summary, hb_summary)', e2: 'silver.pose_population_hist (MV: 14-table JOIN across terminals, stores, merchants, staging, views)', tag: 'fms', secondary: 'pose' },
+      { day: 'D23', lead: 'silver.population_v2 (MV: 11-table JOIN across terminals, stores, merchants, absence_logs, staging)\npopulation_v2 self-reference pattern validation', e1: 'silver.latest_terminal_dismantle (view: ROW_NUMBER partition by serial_number)', e2: 'silver.item_purchased (MV: 23-table JOIN)', tag: 'fms', secondary: 'pose' },
+      { day: 'D24', lead: 'silver.dm_thermal_pose (view: MongoDB + population)\nsilver.tfm_visit_form_pose_meri_enriched (view: staging enrichment)\ndismantle view ROW_NUMBER logic validation', e1: 'Validate all FMS Silver: compare with ES transform output (1000-row samples)', e2: 'Validate POSe Silver: compare transaction/population/item_purchased output', tag: 'fms', secondary: 'pose' },
+      { day: 'D25', lead: 'Silver Phase 2 validation review: compile all comparison results\nW5 status report', e1: 'FMS Silver tuning: refresh schedule optimization\nFMS Silver SCD2: scd_population + v_current_population', e2: 'POSe Silver tuning: MV refresh window optimization\nValidate POSe Silver SCD2 tables', tag: 'fms', secondary: 'pose' },
+    ]
+  },
+  {
+    id: 6, label: 'Week 6', days: 'D26–D30', title: 'Silver Phase 3 — TAP views + MVs + POSe aggregation MV',
+    exit: 'FMS: 7 Silver objects + 3 SCD2 tables validated. POSe: 7 Silver objects validated. TAP: 8 Silver objects validated.',
+    tasks: [
+      { day: 'D26', lead: 'TAP: silver.pose_users_dummy (view: filter dummy/test/sales users)\nTAP: silver.pose_subs_log (view: subscription log)\nDummy user filter logic implementation', e1: 'FMS Silver: collapsed enrichment tuning + refresh schedule optimization', e2: 'TAP: silver.tap_users_sales (view: sales hierarchy)\nTAP: silver.dim_date (view: date dimension)', tag: 'fms', secondary: 'tap' },
+      { day: 'D27', lead: 'TAP: silver.submission_poses (MV: replaces ELK cdc-tap-submission_poses, CTEs + 10-table JOIN)\nSubmission poses MV implementation', e1: 'FMS: silver.scd_population (SCD2: population master data)\nFMS: silver.v_current_population (current view)', e2: 'TAP: silver.dm_pose_subscriptions (MV: replaces ELK cdc-tap-dm_pose_subscriptions, UNION ALL + 14-table JOIN)', tag: 'fms', secondary: 'tap' },
+      { day: 'D28', lead: 'TAP: silver.dm_cashloy_daily_point (MV: window functions for cumulative sums, 7-table JOIN)\nCashloy daily point MV implementation', e1: 'FMS: silver.scd_terminal (SCD2: terminal master from ticket_with_hb_trx_logon)\nFMS: silver.v_current_terminal (current view)', e2: 'TAP Silver validation: compare submission_poses + dm_pose_subscriptions with PostgreSQL', tag: 'fms', secondary: 'tap' },
+      { day: 'D29', lead: 'TAP Silver validation: compare dm_cashloy_daily_point with PostgreSQL\nCompile all TAP Silver comparison results', e1: 'FMS: silver.scd_ticket (SCD2: ticket master from logstash_ticket_maintenance)\nFMS: silver.v_current_ticket (current view)', e2: 'TAP Silver validation: all 8 objects (5 MVs + 3 views) — compare 1000-row samples with PostgreSQL', tag: 'fms', secondary: 'tap' },
+      { day: 'D30', lead: 'Silver layer sign-off: all 3 systems validated\nW6 status report + Silver completion summary', e1: 'FMS Silver sign-off: all 7 objects validated', e2: 'POSe Silver sign-off: all 7 objects validated\nTAP Silver sign-off: all 8 objects validated', tag: 'fms', secondary: 'tap' },
+    ]
+  },
+  {
+    id: 7, label: 'Week 7', days: 'D31–D35', title: 'Gold Layer — Dashboard MVs',
+    exit: 'FMS: 10 Gold MVs. POSe: 12 Gold MVs. TAP: 7 Gold MVs. All queries hit MVs.',
+    tasks: [
+      { day: 'D31', lead: 'gold.pose_pop_trx_sum_hist (MV: JOIN population_hist + transaction_summary)\ngold.transaction (view: filtered for dashboards)\nGold MV refresh schedule design (FMS 02:00, POSe 03:00, TAP 04:00)', e1: 'gold.thermal_paper_consumption_daily (MV: daily agg by MID)\ngold.trx_rc_daily_summary (MV: daily agg by RC)', e2: 'gold.population_v2 (view: filtered)\ngold.item_purchased (view: filtered)', tag: 'fms', secondary: 'pose' },
+      { day: 'D32', lead: 'gold.population_enrichment_per_merchant (MV: GROUP BY merchant_id)\ngold.population_enrichment_per_terminal (MV: GROUP BY terminal_id)\nEXPLAIN plan validation', e1: 'gold.ecr_monitoring_daily (MV: from logstash_ecrlink)\ngold.void_transaction_daily (MV: from logstash_paid_void)\ngold.jpos_monitoring_daily (MV: from logstash_jpos)', e2: 'gold.dm_thermal_pose (view)\ngold.tfm_visit_form_pose_meri (view)\ngold.population_enrichment_per_store (MV: GROUP BY store_id)', tag: 'fms', secondary: 'pose' },
+      { day: 'D33', lead: 'gold.latest_subscription (MV: latest by subscription_id)\ngold.dm_pose_subscriptions (view)\nSignal strength MV metric validation', e1: 'gold.signal_strength_by_poi (MV: signal metrics by POI)\ngold.signal_strength_by_sn (MV: signal metrics by SN)', e2: 'gold.submission_poses (view)\ngold.dm_cashloy_daily_point (view)', tag: 'fms', secondary: 'pose' },
+      { day: 'D34', lead: 'gold.pose_all_subscription_per_sales (MV)\ngold.stock_mentor_meri (MV)\ngold.logstash_assets (view)\nTAP Gold MV implementation', e1: 'gold.pm_pending_summary (MV: PM pending counts)\ngold.app_version_distribution (MV: app version counts)\ngold.population_enrichment_monthly (view)', e2: 'POSe+TAP Gold: EXPLAIN all 30 dashboard queries → confirm MV hits', tag: 'fms', secondary: 'tap' },
+      { day: 'D35', lead: 'Gold layer sign-off: EXPLAIN all 63 dashboard queries\nConfirm no full Bronze scans, all hit MVs\nW7 status report', e1: 'FMS Gold: EXPLAIN all 33 dashboard queries → confirm MV hits\nFMS Gold: no full Bronze scans on any dashboard query', e2: 'POSe Gold sign-off: all 12 MVs validated\nTAP Gold sign-off: all 7 MVs validated', tag: 'fms', secondary: 'tap' },
+    ]
+  },
+  {
+    id: 8, label: 'Week 8', days: 'D36–D40', title: 'Dashboard Migration — All 63 dashboards to Superset',
+    exit: 'All 63 dashboards recreated in Superset, connected to StarRocks.',
+    tasks: [
+      { day: 'D36', lead: 'Set up Superset datasource connections (StarRocks → Superset)\nExport POSe+TAP dashboard JSONs from Kibana\nCreate Superset dashboard template', e1: 'Export all 33 FMS dashboard JSONs from Kibana', e2: 'Export POSe+TAP dashboard JSONs from Kibana', tag: 'fms', secondary: 'tap' },
+      { day: 'D37', lead: 'POSe (5): Population QR Set, Population Mobile, Client BRI Chain New, Client BRI Chain, Population PoV EDC\nTAP (6): POSe Subscription, POSe Revenue, Revenue Regional, Reseller Revenue, Revenue Digital Marketing, TAP Sales', e1: 'FMS Batch 1 (6): Historical Populasi, NOP EDC Terpasang, EDC NOP-v03, Target KPI, EDC Aktif-v01, Population Heartbeat', e2: 'POSe (6): Population QR Set, Population Mobile, Client BRI Chain New, Client BRI Chain, Population PoV EDC, Population-v06', tag: 'fms', secondary: 'pose' },
+      { day: 'D38', lead: 'POSe (5): TRX QR SET, TRX Mobile, UMKM, Fest Kuliner, PCS-Trans Padang\nTAP (3): TAP Marketing, Cashier Loyalty, INVERA EDC', e1: 'FMS Batch 2+3 (11): Dismantle Status, SIK & Dismantle, Ticket Performance, PISA-v02, M3S BRI, Trx RC, ECR Monitoring, Void Monitoring, JPOS Monitoring, Merchant Timeout, EDC Timeout', e2: 'POSe (6): PCS-Ancol, PCS-Transmetro, PCS, Agrowisata, BPTD, QR Inacash', tag: 'fms', secondary: 'pose' },
+      { day: 'D39', lead: 'POSe (5): QR-SET Thermal, Version & Simcard, Visit Form MERi, Summary Product Sold, Monitoring QR Inacash\nDashboard query performance validation', e1: 'FMS Batch 4 (4): Signal Overview, Signal by POI, Signal by SN, PM Pending (merged)', e2: 'POSe (5): QR Inacash, QR-SET Thermal, Version & Simcard, Visit Form MERi, Summary Product Sold', tag: 'fms', secondary: 'pose' },
+      { day: 'D40', lead: 'Dashboard migration sign-off: all 63 dashboards created\nW8 status report + dashboard completion summary', e1: 'FMS Batch 5+6 (12): Manual Key In, Thermal Paper, Population Growth, Trx Rate Summary, Operator & App Version, EDC Aktif Kanwil, Trx Response, App Version, AP Fitur Success, AP Fitur Not Success, INVERA EDC, Side-by-side comparison all 33', e2: 'POSe: side-by-side comparison all 21 dashboards', tag: 'fms', secondary: 'pose' },
+    ]
+  },
+  {
+    id: 9, label: 'Week 9', days: 'D41–D44', title: 'Validation + Cutover',
+    exit: 'All 63 dashboards validated in Superset, stakeholder sign-off obtained, ELK set to read-only.',
+    tasks: [
+      { day: 'D41', lead: 'Visual validation: compile all side-by-side screenshots\nPrioritize fix list for visual discrepancies\nFix visual discrepancies', e1: 'Side-by-side: Kibana vs Superset for all 33 FMS dashboards\nFix visual discrepancies', e2: 'Side-by-side: Kibana vs Superset for all 21 POSe + 9 TAP dashboards\nFix visual discrepancies', tag: 'fms', secondary: 'tap' },
+      { day: 'D42', lead: 'EXPLAIN + benchmark all dashboard queries (target p95 ≤ ELK)\nIdentify slow queries, tune MVs + partitioning', e1: 'EXPLAIN + benchmark all 33 FMS dashboard queries (target p95 ≤ ELK)\nTune slow queries: add MVs, adjust partitioning', e2: 'EXPLAIN + benchmark all 30 POSe+TAP dashboard queries\nTune slow queries', tag: 'fms', secondary: 'tap' },
+      { day: 'D43', lead: 'Stakeholder demo: compile success metrics\nObtain sign-off from FMS + POSe + TAP stakeholders\nSet ELK indices to read-only', e1: 'FMS stakeholder demo + sign-off\nSet ELK FMS indices to read-only', e2: 'POSe + TAP stakeholder demo + sign-off\nSet ELK POSe/TAP indices to read-only', tag: 'fms', secondary: 'tap' },
+      { day: 'D44', lead: 'CUTOVER: coordinate go-live across all teams\nMonitor Superset performance + data freshness for 24h\nEscalation POC for any production issues', e1: 'CUTOVER: Superset goes live as primary dashboard platform\nELK set to read-only\nMonitor FMS query performance for 24h', e2: 'CUTOVER: Superset goes live\nELK set to read-only\nMonitor POSe+TAP query performance for 24h', tag: 'infra', deliverable: 'GO LIVE' },
+    ]
+  },
+];
+
+// ── State ──
+const state = {
+  checked: JSON.parse(localStorage.getItem('dlm_checked') || '{}'),
+  filter: 'all',
+  search: '',
+};
+
+function save() { localStorage.setItem('dlm_checked', JSON.stringify(state.checked)); }
+
+function taskKey(wi, ti, col) { return `w${wi}_t${ti}_${col}`; }
+
+function isChecked(key) { return !!state.checked[key]; }
+
+function toggle(key) {
+  state.checked[key] = !state.checked[key];
+  if (!state.checked[key]) delete state.checked[key];
+  save();
+  updateProgress();
+}
+
+// ── Progress ──
+function countTotal() {
+  let n = 0;
+  weeks.forEach((w, wi) => w.tasks.forEach((_, ti) => { n += 3; }));
+  return n;
+}
+function countChecked() {
+  return Object.keys(state.checked).filter(k => state.checked[k]).length;
+}
+function updateProgress() {
+  const total = countTotal();
+  const done = countChecked();
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+// ── Filter / Search ──
+function matchesFilter(task) {
+  if (state.filter === 'all') return true;
+  if (state.filter === 'lead') return task.tag === 'infra' || task.tag === 'fms' || task.tag === 'pose' || task.tag === 'tap';
+  if (state.filter === 'fms') return task.tag === 'fms' || task.secondary === 'fms';
+  if (state.filter === 'pose') return task.tag === 'pose' || task.secondary === 'pose';
+  if (state.filter === 'tap') return task.tag === 'tap' || task.secondary === 'tap';
+  if (state.filter === 'infra') return task.tag === 'infra';
+  return true;
+}
+function matchesSearch(task) {
+  if (!state.search) return true;
+  const q = state.search.toLowerCase();
+  return (task.lead + task.e1 + task.e2 + task.day + (task.deliverable || '')).toLowerCase().includes(q);
+}
+
+// ── Render ──
+function render() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+
+  weeks.forEach((week, wi) => {
+    const filtered = week.tasks.filter(t => matchesFilter(t) && matchesSearch(t));
+    if (filtered.length === 0 && state.filter !== 'all') return;
+
+    const card = document.createElement('div');
+    card.className = 'week-card open';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'week-header';
+    hdr.onclick = () => card.classList.toggle('open');
+    hdr.innerHTML = `
+      <span class="week-badge w${week.id}">${week.label}</span>
+      <span class="week-title">${week.title}</span>
+      <span class="week-meta">${week.days} · ${week.tasks.length} days</span>
+      <span class="week-toggle">▶</span>
+    `;
+    card.appendChild(hdr);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'week-body';
+
+    // Group by day
+    const byDay = {};
+    filtered.forEach(t => {
+      if (!byDay[t.day]) byDay[t.day] = [];
+      byDay[t.day].push(t);
+    });
+
+    Object.keys(byDay).forEach(day => {
+      const sec = document.createElement('div');
+      sec.className = 'day-section';
+      sec.innerHTML = `<div class="day-label">${day}</div>`;
+
+      const table = document.createElement('table');
+      table.className = 'task-table';
+      table.innerHTML = `<thead><tr><th style="width:30px"></th><th style="width:55px">Person</th><th>Task</th><th style="width:60px">System</th></tr></thead>`;
+
+      const tbody = document.createElement('tbody');
+      byDay[day].forEach((task, ti) => {
+        const globalIdx = week.tasks.indexOf(task);
+        [['lead', 'Lead'], ['e1', 'E1'], ['e2', 'E2']].forEach(([col, eng]) => {
+          const key = taskKey(wi, globalIdx, col);
+          const tagCls = col === 'lead' ? 'lead' : col === 'e1' ? task.tag : (task.secondary || task.tag);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input type="checkbox" class="task-cb" data-key="${key}" ${isChecked(key) ? 'checked' : ''}></td>
+            <td><strong style="color:var(--${col === 'lead' ? 'lead' : col === 'e1' ? 'fms' : 'pose'})">${eng}</strong></td>
+            <td><span class="task-text">${(task[col] || '').replace(/\n/g, '<br>')}</span></td>
+            <td><span class="tag ${tagCls}">${tagCls.toUpperCase()}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+      table.appendChild(tbody);
+      sec.appendChild(table);
+      body.appendChild(sec);
+    });
+
+    // Exit criteria
+    const exit = document.createElement('div');
+    exit.className = 'exit-criteria';
+    exit.innerHTML = `<strong>Exit criteria:</strong> ${week.exit}`;
+    body.appendChild(exit);
+
+    card.appendChild(body);
+    main.appendChild(card);
+  });
+
+  // Deliverables
+  renderDeliverables(main);
+
+  // Gantt
+  renderGantt(main);
+
+  // Bind checkboxes
+  main.querySelectorAll('.task-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      toggle(cb.dataset.key);
+    });
+  });
+
+  updateProgress();
+}
+
+function renderDeliverables(parent) {
+  const sections = [
+    {
+      title: 'Infrastructure (W1)', groups: [
+        { label: 'Checklist', items: [
+          'Apache Polaris installed and configured',
+          'StarRocks cluster provisioned with Polaris external catalog',
+          'All 18 Bronze + 3 Silver + 3 Gold namespaces created with RBAC',
+          'Airbyte configured with sources: PostgreSQL, MySQL, MongoDB',
+          'Airbyte POC: MongoDB → bronze.fms_mongodb.logstash_transaction + PostgreSQL → bronze.pose_postgres.transactions',
+        ]}
+      ]
+    },
+    {
+      title: 'Bronze Layer (W2–W3)', groups: [
+        { label: 'FMS (15 tables)', items: [
+          'MongoDB CDC → logstash_transaction, logstash_logon, logstash_hb_primary, logstash_hb_secondary, logstash_jpos',
+          'MySQL CDC → logstash_ticket_maintenance, logstash_ticket_implementation, logstash_pisa, logstash_ecrlink, logstash_paid_void, logstash_stock',
+          'Manual → target_edc_per_month_per_branch',
+          'Derived → population_historical_monthly, logstash_ticket_with_upsert_heartbeat',
+        ]},
+        { label: 'POSe (37 tables)', items: [
+          'PostgreSQL CDC → 25 s_cdc_pose.* tables',
+          'PostgreSQL CDC → 2 s_cdc_subscription.* tables',
+          'MongoDB CDC → 1 thermal_activities',
+          'Staging → 5 s_staging.* tables',
+          'Views → 2 s_view.* tables',
+        ]},
+        { label: 'TAP (48 tables)', items: [
+          'PostgreSQL CDC → 12 s_cdc_tap.* tables',
+          'PostgreSQL CDC → 4 s_cdc_cl.* tables',
+          'PostgreSQL CDC → 1 s_cdc_pose.users',
+          'MongoDB CDC → 1 user_points',
+          'PostgreSQL CDC → 5 s_cdc_subscription.* tables',
+          'Staging → 1 stg_pengajuan_pose_qrset',
+          'Views → 4 s_view.* tables',
+          'MySQL CDC → 4 mavis.* tables',
+          'MySQL CDC → 15 picas.* tables',
+        ]},
+      ]
+    },
+    {
+      title: 'Silver Layer (W4–W6)', groups: [
+        { label: 'FMS (7 objects + 4 SCD2)', items: [
+          'silver.transaction_approved_paid_void (MV)',
+          'silver.first_trx_manual_key_in (view)',
+          'silver.transaction_summary_by_tid (view)',
+          'silver.ticket_with_hb_trx_logon (MV)',
+          'silver.transaction_access_point_feature (MV)',
+          'silver.population_enrichment_monthly (MV)',
+          'silver.latest_terminal_dismantle (view)',
+          'SCD2: scd_transaction, scd_population, scd_terminal, scd_ticket',
+        ]},
+        { label: 'POSe (7 objects + 14 SCD2 tables + 14 views)', items: [
+          'SCD2: scd_merchants, scd_stores, scd_terminals, scd_users, scd_clients, scd_companies, scd_roles, scd_terminal_types, scd_region_offices, scd_store_payment_methods, scd_subscription_users, scd_absence_logs + current views',
+          'silver.transaction (MV: 22-table JOIN)',
+          'silver.transaction_summary (view)',
+          'silver.pose_population_hist (MV: 14-table JOIN)',
+          'silver.population_v2 (MV: 11-table JOIN)',
+          'silver.item_purchased (MV: 23-table JOIN)',
+          'silver.dm_thermal_pose (view)',
+          'silver.tfm_visit_form_pose_meri_enriched (view)',
+        ]},
+        { label: 'TAP (8 objects)', items: [
+          'silver.pose_users_dummy (view)',
+          'silver.pose_subs_log (view)',
+          'silver.tap_users_sales (view)',
+          'silver.submission_poses (MV)',
+          'silver.dm_pose_subscriptions (MV)',
+          'silver.dm_cashloy_daily_point (MV)',
+          'silver.assets (MV: 14-table JOIN)',
+          'silver.stock_mentor_meri (MV: 4-table JOIN)',
+        ]},
+      ]
+    },
+    {
+      title: 'Gold Layer (W7)', groups: [
+        { label: 'FMS (10 MVs)', items: [
+          'gold.thermal_paper_consumption_daily, gold.trx_rc_daily_summary',
+          'gold.ecr_monitoring_daily, gold.void_transaction_daily, gold.jpos_monitoring_daily',
+          'gold.signal_strength_by_poi, gold.signal_strength_by_sn',
+          'gold.pm_pending_summary, gold.app_version_distribution, gold.population_enrichment_monthly',
+        ]},
+        { label: 'POSe (12 MVs)', items: [
+          'gold.pose_pop_trx_sum_hist, gold.transaction, gold.population_v2',
+          'gold.item_purchased, gold.population_enrichment_per_merchant, gold.population_enrichment_per_terminal',
+          'gold.dm_thermal_pose, gold.tfm_visit_form_pose_meri, gold.population_enrichment_per_store',
+          'gold.latest_subscription, gold.stock_mentor_meri, gold.trx_item_purchased',
+        ]},
+        { label: 'TAP (7 MVs)', items: [
+          'gold.dm_pose_subscriptions, gold.submission_poses, gold.dm_cashloy_daily_point',
+          'gold.pose_all_subscription_per_sales, gold.subscription_qrset_marketing',
+          'gold.stock_mentor_meri, gold.logstash_assets',
+        ]},
+      ]
+    },
+    {
+      title: 'Dashboards (W8–W9)', groups: [
+        { label: 'Checklist', items: [
+          'Superset connected to StarRocks as datasource',
+          '63 dashboards recreated in Superset (33 FMS + 21 POSe + 9 TAP)',
+          'Side-by-side visual comparison completed (Kibana vs Superset)',
+          'Performance benchmarking: p95 latency ≤ ELK equivalent',
+          'Stakeholder sign-off obtained',
+          'ELK set to read-only, Superset goes live',
+        ]},
+      ]
+    },
+  ];
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'deliverables';
+  wrapper.innerHTML = `
+    <div class="deliverables-header"><span class="week-toggle">▶</span> Deliverables Checklist</div>
+    <div class="deliverables-body" id="deliverablesBody"></div>
+  `;
+  wrapper.querySelector('.deliverables-header').onclick = () => wrapper.classList.toggle('open');
+  const body = wrapper.querySelector('.deliverables-body');
+
+  sections.forEach(sec => {
+    const secDiv = document.createElement('div');
+    secDiv.style.marginBottom = '18px';
+    secDiv.innerHTML = `<h3 style="font-size:.88rem;margin-bottom:8px;color:var(--accent-light)">${sec.title}</h3>`;
+    sec.groups.forEach(g => {
+      const gDiv = document.createElement('div');
+      gDiv.className = 'deliverable-group';
+      gDiv.innerHTML = `<h4>${g.label}</h4>`;
+      g.items.forEach(item => {
+        const key = `del_${sec.title}_${g.label}_${item}`.replace(/\W+/g, '_');
+        const row = document.createElement('div');
+        row.className = 'deliverable-item';
+        row.innerHTML = `<input type="checkbox" ${isChecked(key) ? 'checked' : ''} data-key="${key}"> <span>${item}</span>`;
+        gDiv.appendChild(row);
+      });
+      secDiv.appendChild(gDiv);
+    });
+    body.appendChild(secDiv);
+  });
+
+  parent.appendChild(wrapper);
+
+  body.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      toggle(cb.dataset.key);
+    });
+  });
+}
+
+function renderGantt(parent) {
+  const totalDays = 44;
+  const ganttData = [
+    { label: 'Lead (Infra + POSe/TAP)', start: 0, end: 44, cls: 'lead' },
+    { label: 'Infrastructure (All)', start: 0, end: 5, cls: 'infra' },
+    { label: 'E1: FMS Bronze', start: 5, end: 15, cls: 'fms' },
+    { label: 'E2: POSe Bronze', start: 5, end: 10, cls: 'pose' },
+    { label: 'E2: TAP Bronze', start: 10, end: 15, cls: 'tap' },
+    { label: 'E1: FMS Silver', start: 15, end: 30, cls: 'fms' },
+    { label: 'E2: POSe Silver', start: 15, end: 25, cls: 'pose' },
+    { label: 'E2: TAP Silver', start: 25, end: 30, cls: 'tap' },
+    { label: 'Gold Layer (All)', start: 30, end: 35, cls: 'gold' },
+    { label: 'Dashboard Migration (All)', start: 35, end: 40, cls: 'dash' },
+    { label: 'Validation + Cutover (All)', start: 40, end: 44, cls: 'valid' },
+  ];
+
+  // Calculate today's position (project starts D1)
+  const projectStart = new Date('2026-05-04'); // hypothetical start
+  const today = new Date();
+  const daysSinceStart = Math.floor((today - projectStart) / (1000 * 60 * 60 * 24));
+  const todayPct = Math.max(0, Math.min(100, (daysSinceStart / totalDays) * 100));
+
+  const sec = document.createElement('div');
+  sec.className = 'gantt-section';
+  sec.innerHTML = `
+    <div class="gantt-header"><span class="week-toggle">▶</span> Timeline Overview (Gantt)</div>
+    <div class="gantt-body">
+      <div class="gantt-chart">
+        <div class="gantt-row" style="height:24px;margin-bottom:8px;">
+          <div class="gantt-label" style="color:var(--text-dim)">Phase</div>
+          <div class="gantt-track" style="position:relative;display:flex;justify-content:space-between;font-size:.65rem;color:var(--text-dim);padding:0 4px;align-items:center;background:transparent;">
+            ${Array.from({length:9}, (_, i) => `<span>W${i+1}</span>`).join('')}
+            ${daysSinceStart >= 0 && daysSinceStart <= totalDays ? `<div class="gantt-today" style="left:${todayPct}%"></div>` : ''}
+          </div>
+        </div>
+        ${ganttData.map(d => `
+          <div class="gantt-row">
+            <div class="gantt-label">${d.label}</div>
+            <div class="gantt-track">
+              <div class="gantt-bar ${d.cls}" style="left:${(d.start/totalDays)*100}%;width:${((d.end-d.start)/totalDays)*100}%">D${d.start+1}–D${d.end}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:.75rem;color:var(--text-dim);">
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--lead);vertical-align:middle;margin-right:4px;"></span>Lead</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--infra);vertical-align:middle;margin-right:4px;"></span>Infrastructure</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--fms);vertical-align:middle;margin-right:4px;"></span>FMS (E1)</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--pose);vertical-align:middle;margin-right:4px;"></span>POSe (E2)</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--tap);vertical-align:middle;margin-right:4px;"></span>TAP (E2)</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent);vertical-align:middle;margin-right:4px;"></span>Gold</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#a855f7;vertical-align:middle;margin-right:4px;"></span>Dashboards</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--danger);vertical-align:middle;margin-right:4px;"></span>Validation</span>
+      </div>
+    </div>
+  `;
+  sec.querySelector('.gantt-header').onclick = () => sec.classList.toggle('open');
+  parent.appendChild(sec);
+}
+
+// ── Controls ──
+document.querySelectorAll('.controls button[data-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.controls button[data-filter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.filter = btn.dataset.filter;
+    render();
+  });
+});
+
+document.getElementById('expandAll').onclick = () => {
+  document.querySelectorAll('.week-card, .deliverables, .gantt-section').forEach(el => el.classList.add('open'));
+};
+document.getElementById('collapseAll').onclick = () => {
+  document.querySelectorAll('.week-card, .deliverables, .gantt-section').forEach(el => el.classList.remove('open'));
+};
+document.getElementById('searchBox').addEventListener('input', e => {
+  state.search = e.target.value;
+  render();
+});
+
+// ── Init ──
+render();
+</script>
+</body>
+</html>
