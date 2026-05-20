@@ -118,9 +118,8 @@ def connect_elasticsearch_read():
     """
     
     es = Elasticsearch(
-        # ["https://10.88.9.161:9200"],
-        ["https://m3sbridata-api.pcsindonesia.co.id:443"],
-        api_key="Y0FNUXQ1VUI1RWhvcjE2VUEtLV86V3pCdF92VWFTZDJubmVHa1lqTHRTZw==",
+        ["https://m3sbridata-api.pcsindonesia.co.id"],
+        api_key="xxx==",
         verify_certs=False
     )
     
@@ -131,8 +130,8 @@ def connect_elasticsearch_write():
     """
     
     es = Elasticsearch(
-        ["https://m3sbridata-api.pcsindonesia.co.id:443"],
-        api_key="aWdNUXQ1VUI1RWhvcjE2VWpQUko6V19zUGptVmpRZVNXcDhDQVRsVjh1dw==",
+        ["https://m3sbridata-api.pcsindonesia.co.id"],
+        api_key="xxx==",
         verify_certs=False
     )
     
