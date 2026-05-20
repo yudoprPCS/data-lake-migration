@@ -435,14 +435,14 @@
 // ── Data Model (Lead + E1 + E2) ──
 const weeks = [
   {
-    id: 1, label: 'Week 1', days: 'D1–D5', title: 'Infrastructure Setup',
+    id: 1, label: 'Week 1', days: 'D1–D5', title: 'Infrastructure Setup (Lead-owned)',
     exit: 'Polaris running, StarRocks connected, 1 table ingested per pipeline',
     tasks: [
-      { day: 'D1', lead: 'Polaris catalog installation + config\nStarRocks cluster topology design + deployment', e1: 'StarRocks FE/BE node setup + Polaris connector config', e2: 'StarRocks resource group + storage volume config', tag: 'infra', deliverable: 'Catalog + engine ready' },
-      { day: 'D2', lead: 'Create all Bronze namespaces + schema mapping doc\nConfigure Airbyte source connectors (PostgreSQL, MySQL, MongoDB)', e1: 'Create FMS Bronze namespaces: fms_mongodb, fms_mysql, fms_manual, fms_derived', e2: 'Create POSe+TAP Bronze namespaces: pose_postgres, subscription_postgres, pose_mongodb, pose_staging, pose_views, tap_postgres, cl_postgres, cl_mongodb, tap_staging, tap_views, picas_mysql, mavis_mysql', tag: 'infra', deliverable: 'Namespaces created' },
-      { day: 'D3', lead: 'Define RBAC policies + access matrix\nCreate Silver/Gold namespaces: silver.*, gold.* for all systems', e1: 'Silver/Gold namespace RBAC: silver.fms, gold.fms', e2: 'Silver/Gold namespace RBAC: silver.pose, gold.pose, silver.tap, gold.tap', tag: 'infra', deliverable: 'All namespaces + RBAC' },
-      { day: 'D4', lead: 'StarRocks external catalog registration (unified_catalog)\nPolaris ↔ StarRocks connectivity testing', e1: 'StarRocks external catalog registration (fms_catalog)', e2: 'StarRocks external catalog registration (pose_catalog, tap_catalog)', tag: 'infra', deliverable: 'Catalogs registered' },
-      { day: 'D5', lead: 'Airbyte POC: PostgreSQL → bronze.pose_postgres.transactions\nAirbyte connector config tuning (batch size, CDC mode)', e1: 'Airbyte POC: MongoDB → bronze.fms_mongodb.logstash_transaction', e2: 'Airbyte POC: MySQL → bronze.fms_mysql.logstash_ticket_maintenance', tag: 'infra', deliverable: 'Airbyte pipeline validated' },
+      { day: 'D1', lead: 'Polaris catalog installation + config\nStarRocks cluster topology design + deployment\nStarRocks FE/BE node setup + Polaris connector config\nStarRocks resource group + storage volume config', e1: 'Review StarRocks cluster config + validate connectivity', e2: 'Review Polaris catalog config + validate namespace access', tag: 'infra', deliverable: 'Catalog + engine ready' },
+      { day: 'D2', lead: 'Create all 18 Bronze namespaces + schema mapping doc\nConfigure Airbyte source connectors (PostgreSQL, MySQL, MongoDB)\nCreate FMS Bronze: fms_mongodb, fms_mysql, fms_manual, fms_derived\nCreate POSe+TAP Bronze: pose_postgres, subscription_postgres, pose_mongodb, pose_staging, pose_views, tap_postgres, cl_postgres, cl_mongodb, tap_staging, tap_views, picas_mysql, mavis_mysql', e1: 'Validate FMS Bronze namespace schemas + table definitions', e2: 'Validate POSe+TAP Bronze namespace schemas + table definitions', tag: 'infra', deliverable: 'Namespaces created' },
+      { day: 'D3', lead: 'Define RBAC policies + access matrix for all namespaces\nCreate all Silver/Gold namespaces: silver.*, gold.*\nConfigure RBAC for all systems', e1: 'Review + test FMS RBAC policies (silver.fms, gold.fms)', e2: 'Review + test POSe/TAP RBAC policies (silver.pose, gold.pose, silver.tap, gold.tap)', tag: 'infra', deliverable: 'All namespaces + RBAC' },
+      { day: 'D4', lead: 'StarRocks external catalog registration (unified_catalog)\nPolaris ↔ StarRocks connectivity testing\nRegister fms_catalog, pose_catalog, tap_catalog', e1: 'Validate fms_catalog: query test against FMS Bronze tables', e2: 'Validate pose_catalog + tap_catalog: query test against POSe/TAP Bronze tables', tag: 'infra', deliverable: 'Catalogs registered' },
+      { day: 'D5', lead: 'Airbyte POC: PostgreSQL → bronze.pose_postgres.transactions\nAirbyte connector config tuning (batch size, CDC mode)\nAirbyte POC: MongoDB → bronze.fms_mongodb.logstash_transaction\nAirbyte POC: MySQL → bronze.fms_mysql.logstash_ticket_maintenance', e1: 'Validate Airbyte MongoDB CDC: schema fidelity + row count', e2: 'Validate Airbyte PostgreSQL CDC: schema fidelity + row count', tag: 'infra', deliverable: 'Airbyte pipeline validated' },
     ]
   },
   {
@@ -578,7 +578,7 @@ function matchesFilter(task) {
   if (state.filter === 'fms') return task.tag === 'fms' || task.secondary === 'fms';
   if (state.filter === 'pose') return task.tag === 'pose' || task.secondary === 'pose';
   if (state.filter === 'tap') return task.tag === 'tap' || task.secondary === 'tap';
-  if (state.filter === 'infra') return task.tag === 'infra';
+  if (state.filter === 'infra') return task.tag === 'infra' || task.tag === 'lead';
   return true;
 }
 function matchesSearch(task) {
@@ -830,7 +830,7 @@ function renderGantt(parent) {
   const totalDays = 44;
   const ganttData = [
     { label: 'Lead (Infra + POSe/TAP)', start: 0, end: 44, cls: 'lead' },
-    { label: 'Infrastructure (All)', start: 0, end: 5, cls: 'infra' },
+    { label: 'Lead: Infrastructure', start: 0, end: 5, cls: 'infra' },
     { label: 'E1: FMS Bronze', start: 5, end: 15, cls: 'fms' },
     { label: 'E2: POSe Bronze', start: 5, end: 10, cls: 'pose' },
     { label: 'E2: TAP Bronze', start: 10, end: 15, cls: 'tap' },
@@ -872,7 +872,7 @@ function renderGantt(parent) {
       </div>
       <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;font-size:.75rem;color:var(--text-dim);">
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--lead);vertical-align:middle;margin-right:4px;"></span>Lead</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--infra);vertical-align:middle;margin-right:4px;"></span>Infrastructure</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--infra);vertical-align:middle;margin-right:4px;"></span>Infrastructure (Lead)</span>
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--fms);vertical-align:middle;margin-right:4px;"></span>FMS (E1)</span>
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--pose);vertical-align:middle;margin-right:4px;"></span>POSe (E2)</span>
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--tap);vertical-align:middle;margin-right:4px;"></span>TAP (E2)</span>

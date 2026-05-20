@@ -209,15 +209,15 @@ WHERE tgt.merchant_id = src.merchant_id
 
 ---
 
-## Week 1 (D1-D5): Infrastructure Setup
+## Week 1 (D1-D5): Infrastructure Setup (Lead-owned)
 
-| Day | Lead | E1 | E2 | Deliverable |
+| Day | Lead (Infrastructure Owner) | E1 (Support) | E2 (Support) | Deliverable |
 |-----|------|----|----|-------------|
-| D1 | Polaris catalog installation + config; StarRocks cluster topology design + deployment | StarRocks FE/BE node setup + Polaris connector config | StarRocks resource group + storage volume config | Catalog + engine ready |
-| D2 | Create all Bronze namespaces + schema mapping doc; Configure Airbyte source connectors (PostgreSQL, MySQL, MongoDB) | Create FMS Bronze namespaces: `bronze.fms_mongodb`, `bronze.fms_mysql`, `bronze.fms_manual`, `bronze.fms_derived` | Create POSe+TAP Bronze namespaces: `bronze.pose_postgres`, `bronze.subscription_postgres`, `bronze.pose_mongodb`, `bronze.pose_staging`, `bronze.pose_views`, `bronze.tap_postgres`, `bronze.cl_postgres`, `bronze.cl_mongodb`, `bronze.tap_staging`, `bronze.tap_views`, `bronze.picas_mysql`, `bronze.mavis_mysql` | Namespaces created |
-| D3 | Define RBAC policies + access matrix; Create Silver/Gold namespaces for all systems | Silver/Gold namespace RBAC: `silver.fms`, `gold.fms` | Silver/Gold namespace RBAC: `silver.pose`, `gold.pose`, `silver.tap`, `gold.tap` | All namespaces + RBAC |
-| D4 | StarRocks external catalog registration (unified_catalog); Polaris ↔ StarRocks connectivity testing | StarRocks external catalog registration (fms_catalog) | StarRocks external catalog registration (pose_catalog, tap_catalog) | Catalogs registered |
-| D5 | Airbyte POC: PostgreSQL → `bronze.pose_postgres.transactions`; Airbyte connector config tuning (batch size, CDC mode) | Airbyte POC: MongoDB → `bronze.fms_mongodb.logstash_transaction` | Airbyte POC: MySQL → `bronze.fms_mysql.logstash_ticket_maintenance` | Airbyte pipeline validated |
+| D1 | Polaris catalog installation + config; StarRocks cluster topology design + deployment; StarRocks FE/BE node setup + Polaris connector config; StarRocks resource group + storage volume config | Review StarRocks cluster config + validate connectivity | Review Polaris catalog config + validate namespace access | Catalog + engine ready |
+| D2 | Create all 18 Bronze namespaces + schema mapping doc; Configure Airbyte source connectors (PostgreSQL, MySQL, MongoDB); Create FMS Bronze namespaces: `bronze.fms_mongodb`, `bronze.fms_mysql`, `bronze.fms_manual`, `bronze.fms_derived`; Create POSe+TAP Bronze namespaces | Validate FMS Bronze namespace schemas + table definitions | Validate POSe+TAP Bronze namespace schemas + table definitions | Namespaces created |
+| D3 | Define RBAC policies + access matrix for all namespaces; Create all Silver/Gold namespaces: `silver.*`, `gold.*`; Configure RBAC for all systems | Review + test FMS RBAC policies (`silver.fms`, `gold.fms`) | Review + test POSe/TAP RBAC policies (`silver.pose`, `gold.pose`, `silver.tap`, `gold.tap`) | All namespaces + RBAC |
+| D4 | StarRocks external catalog registration (unified_catalog); Polaris ↔ StarRocks connectivity testing; Register `fms_catalog`, `pose_catalog`, `tap_catalog` | Validate `fms_catalog`: query test against FMS Bronze tables | Validate `pose_catalog` + `tap_catalog`: query test against POSe/TAP Bronze tables | Catalogs registered |
+| D5 | Airbyte POC: PostgreSQL → `bronze.pose_postgres.transactions`; Airbyte connector config tuning (batch size, CDC mode); Airbyte POC: MongoDB → `bronze.fms_mongodb.logstash_transaction`; Airbyte POC: MySQL → `bronze.fms_mysql.logstash_ticket_maintenance` | Validate Airbyte MongoDB CDC: schema fidelity + row count | Validate Airbyte PostgreSQL CDC: schema fidelity + row count | Airbyte pipeline validated |
 
 **Exit criteria**: Polaris running, StarRocks connected, 1 table ingested per pipeline
 
@@ -693,11 +693,11 @@ WHERE tgt.merchant_id = src.merchant_id
 
 | Role | Primary Responsibility | Secondary Support | Days |
 |------|----------------------|-------------------|------|
-| **Lead** | Architecture, infrastructure setup, POSe/TAP CDC ingestion, Silver/Gold implementation, validation, sign-off, stakeholder coordination | Cross-system reviews, status reports, go-live coordination | 44 days |
-| **E1** | FMS (61 nodes, 33 dashboards) | Infrastructure, Polaris setup | 44 days |
-| **E2** | POSe (79 nodes, 21 dashboards) + TAP (46 nodes, 9 dashboards) | StarRocks config | 44 days |
+| **Lead** | **Infrastructure (W1)**, architecture, POSe/TAP CDC ingestion, Silver/Gold implementation, validation, sign-off, stakeholder coordination | Cross-system reviews, status reports, go-live coordination | 44 days |
+| **E1** | FMS (61 nodes, 33 dashboards) | Review/validate infrastructure setup | 44 days |
+| **E2** | POSe (79 nodes, 21 dashboards) + TAP (46 nodes, 9 dashboards) | Review/validate infrastructure setup | 44 days |
 
-**Rationale**: Lead is a senior engineer who handles architecture decisions AND implementation — taking on infrastructure setup, POSe/TAP CDC ingestion, complex Silver/Gold MVs, and cross-cutting tasks. This frees E1 (FMS specialist) and E2 (POSe+TAP specialist) to focus on their respective systems. FMS is ELK-heavy (28 indices, no PG tables) — needs dedicated ELK expertise. POSe+TAP are PG-heavy (76 tables) — needs dedicated PG/SQL expertise.
+**Rationale**: Lead owns infrastructure end-to-end — Polaris, StarRocks, Airbyte, namespaces, RBAC, catalog registration. E1 and E2 review/validate but don't build infra. After W1, Lead shifts to POSe/TAP CDC ingestion and complex Silver/Gold MVs. E1 (FMS specialist) and E2 (POSe+TAP specialist) focus on their respective systems. FMS is ELK-heavy (28 indices, no PG tables) — needs dedicated ELK expertise. POSe+TAP are PG-heavy (76 tables) — needs dedicated PG/SQL expertise.
 
 ---
 
